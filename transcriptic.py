@@ -183,34 +183,37 @@ def init():
 def analyze(ctx, file, test):
     '''Analyze your run'''
     with click.open_file(file, 'r') as f:
-        protocol = json.loads(f.read())
-    response = \
-        ctx.obj.post(
-            'analyze_run',
-            data=json.dumps({"protocol": protocol, "test_mode": test})
-        )
-    if response.status_code == 200:
-        click.echo(u"\u2713 Protocol analyzed")
+        try:
+            protocol = json.loads(f.read())
+            response = \
+                ctx.obj.post(
+                    'analyze_run',
+                    data=json.dumps({"protocol": protocol, "test_mode": test})
+                )
+            if response.status_code == 200:
+                click.echo(u"\u2713 Protocol analyzed")
 
-        def count(thing, things, num):
-            click.echo("  %s %s" % (num, thing if num == 1 else things))
-        result = response.json()
-        count("instruction", "instructions", len(result['instructions']))
-        count("container", "containers", len(result['refs']))
-        locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
-        click.echo("  %s" %
-                   locale.currency(float(result['total_cost']), grouping=True))
-        for w in result['warnings']:
-            message = w['message']
-            if 'instruction' in w['context']:
-                context = "instruction %s" % w['context']['instruction']
+                def count(thing, things, num):
+                    click.echo("  %s %s" % (num, thing if num == 1 else things))
+                result = response.json()
+                count("instruction", "instructions", len(result['instructions']))
+                count("container", "containers", len(result['refs']))
+                locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+                click.echo("  %s" %
+                           locale.currency(float(result['total_cost']), grouping=True))
+                for w in result['warnings']:
+                    message = w['message']
+                    if 'instruction' in w['context']:
+                        context = "instruction %s" % w['context']['instruction']
+                    else:
+                        context = json.dumps(w['context'])
+                    click.echo("WARNING (%s): %s" % (context, message))
+            elif response.status_code == 422:
+                click.echo("Error in protocol: %s" % response.text)
             else:
-                context = json.dumps(w['context'])
-            click.echo("WARNING (%s): %s" % (context, message))
-    elif response.status_code == 422:
-        click.echo("Error in protocol: %s" % response.text)
-    else:
-        click.echo("Unknown error: %s" % response.text)
+                click.echo("Unknown error: %s" % response.text)
+        except ValueError:
+            click.echo("The autoprotocol you're trying to analyze is not properly formatted.  If you've generated it using a script, make sure you're not printing anything to standard out.")
 
 
 @cli.command()
