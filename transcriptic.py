@@ -2,6 +2,7 @@ import sys
 import json
 from os.path import expanduser, isfile
 import locale
+import ap2en
 
 import click
 import requests
@@ -198,6 +199,13 @@ def analyze(ctx, file, test):
     else:
         click.echo("Unknown error: %s" % response.text)
 
+@cli.command()
+@click.argument('file', default='-')
+@click.pass_context
+def summarize(ctx, file):
+    with click.open_file(file, 'r') as f:
+        protocol = json.loads(f.read())
+    click.echo(ap2en.parse(protocol))
 
 @cli.command()
 @click.argument('protocol_name')
