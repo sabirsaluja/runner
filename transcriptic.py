@@ -230,7 +230,7 @@ def preview(protocol_name):
 def summarize(ctx, file):
     with click.open_file(file, 'r') as f:
         protocol = json.loads(f.read())
-    click.echo(ap2en.parse(protocol))
+    ap2en.AutoprotocolParser(protocol)
 
 
 @cli.command()
