@@ -199,13 +199,6 @@ def analyze(ctx, file, test):
     else:
         click.echo("Unknown error: %s" % response.text)
 
-@cli.command()
-@click.argument('file', default='-')
-@click.pass_context
-def summarize(ctx, file):
-    with click.open_file(file, 'r') as f:
-        protocol = json.loads(f.read())
-    click.echo(ap2en.parse(protocol))
 
 @cli.command()
 @click.argument('protocol_name')
@@ -229,6 +222,15 @@ def preview(protocol_name):
         fp.write(json.dumps(p['preview']))
         fp.flush()
         call(["bash", "-c", command + " " + fp.name])
+
+
+@cli.command()
+@click.argument('file', default='-')
+@click.pass_context
+def summarize(ctx, file):
+    with click.open_file(file, 'r') as f:
+        protocol = json.loads(f.read())
+    click.echo(ap2en.parse(protocol))
 
 
 @cli.command()
