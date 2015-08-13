@@ -2,10 +2,8 @@ import sys
 import json
 from os.path import expanduser, isfile
 import locale
-from requests_toolbelt import MultipartEncoder
 import click
 import requests
-import boto
 from collections import OrderedDict
 import zipfile
 import os
@@ -170,46 +168,54 @@ def release(ctx, package_id, file, name):
         response_tree = ET.fromstring(response.content)
         loc = dict((i.tag, i.text) for i in response_tree)
         up = ctx.obj.post('/packages/%s/releases/' % package_id,
-                             data =  json.dumps({"release": {
-                                                     "binary_attachment_url": loc["Key"]
-                                                     }
-                                                 }),
-                             headers={"Origin": "https://secure.transcriptic.com/",
-                                      "Content-Type": "application/json"})
+                          data = json.dumps({"release":
+                                                 {
+                                                  "binary_attachment_url": loc["Key"]
+                                                  }
+                                              }),
+                          headers= {
+                            "Origin": "https://secure.transcriptic.com/",
+                            "Content-Type": "application/json"
+                          })
         re = json.loads(up.content)['id']
         click.echo("Validating package...")
         time.sleep(20)
-        status = ctx.obj.get('/packages/%s/releases/%s?_=%s' % (package_id, re, int(time.time())))
+        status = ctx.obj.get('/packages/%s/releases/%s?_=%s' % (package_id, re,
+                                                                int(time.time())))
         published = json.loads(status.content)['published']
         errors = status.json()['validation_errors']
-        if not errors:
-            click.echo("Package uploaded successfully! "
-                       "Visit %s to publish." % ctx.obj.url('/packages/%s' % package_id))
-        else:
+        if errors:
             click.echo("Package upload unsuccessful. "
-                       "The following error was returned: %s" % (',').join(e.get('message', '[Unknown]') for e in errors))
+                       "The following error was "
+                       "returned: %s" %
+                       (',').join(e.get('message', '[Unknown]') for e in errors))
+        else:
+            click.echo("Package uploaded successfully! "
+                       "Visit %s to publish." % ctx.obj.url('packages/%s' % package_id))
 
 
     if not file:
+        upload(ctx, package_id, file)
+    else:
         with open('manifest.json', 'rU') as manifest:
             filename = 'release_v%s' %json.load(manifest)['version']
         if os.path.isfile(filename + ".zip"):
-            new = click.prompt("You already have a release for this version in this folder, make another one? [y/n]",
-                         default = "Y")
-            if new == "Y":
+            new = click.prompt("You already have a release for this "
+                               "version number in this directory, make "
+                               "another one? [y/n]",
+                         default = "y")
+            if new == "y":
                 num_existing = sum([1 for x in os.listdir('.') if filename in x])
                 filename = filename + "-" + str(num_existing)
             else:
                 return
-        click.echo("Creating archive with all files in this directory...")
+        click.echo("Creating archive with all files within this directory...")
         zf = zipfile.ZipFile(filename + ".zip", 'w', deflated)
         archive = makezip('.', zf)
         zf.close()
         click.echo('Uploading to package with id %s' % package_id)
         upload(ctx, package_id, filename + ".zip")
 
-    else:
-        upload(ctx, package_id, file)
 
 
 
@@ -229,7 +235,9 @@ def packages(ctx):
 
 @cli.command()
 @click.option('--description', '-d', required=True, help="A description for your package.")
-@click.option('--name', '-n', required=True, help="Title of your package (no special characters or spaces allowed).")
+@click.option('--name', '-n', required=True, help="Title of your package "
+                                                  "(no special characters or "
+                                                  "spaces allowed).")
 @click.pass_context
 def new_package(ctx, description, name):
     '''List packages in your organization'''
@@ -285,9 +293,10 @@ def init():
         ]
     }
     if isfile('manifest.json'):
-        ow = input('This directory already contains a manifest.json file, would you like to overwrite it with an empty one? ')
-        abort = ow.lower() in ["y", "yes"]
-        if not abort:
+        abort = prompt("This directory already contains a manifest.json file, "
+                       "would you like to overwrite it with an empty one? [y/n]",
+                       default = "y")
+        if abort != "y":
             click.echo('Aborting initialization...')
             return
     with open('manifest.json', 'w+') as f:
@@ -318,7 +327,8 @@ def analyze(ctx, file, test):
                 count("container", "containers", len(result['refs']))
                 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
                 click.echo("  %s" %
-                           locale.currency(float(result['total_cost']), grouping=True))
+                           locale.currency(float(result['total_cost']),
+                                           grouping=True))
                 for w in result['warnings']:
                     message = w['message']
                     if 'instruction' in w['context']:
@@ -331,7 +341,10 @@ def analyze(ctx, file, test):
             else:
                 click.echo("Unknown error: %s" % response.text)
         except ValueError:
-            click.echo("The autoprotocol you're trying to analyze is not properly formatted.  If you've generated it using a script, make sure you're not printing anything to standard out.")
+            click.echo("The autoprotocol you're trying to analyze is not "
+                       "properly formatted.  If you've generated it using a "
+                       "script, make sure you're not printing anything to "
+                       " standard out.")
 
 
 @cli.command()
