@@ -252,8 +252,9 @@ def new_package(ctx, description, name):
                                                "name": name
                                               }))
     if new_pack.status_code == 201:
-        click.echo("New package %s created.  "
-                   "The package ID is %s." % (name, new_pack.json()['id']))
+        click.echo("New package %s created with id %s. \n"
+                   "View it at %s" % (name, new_pack.json()['id'],
+                                       ctx.obj.url('packages/%s' % new_pack.json()['id'])))
     else:
         click.echo("There was an error creating this package.")
 
@@ -293,7 +294,7 @@ def init():
         ]
     }
     if isfile('manifest.json'):
-        abort = prompt("This directory already contains a manifest.json file, "
+        abort = prompt("This directory already contains a manifest.json file, \n"
                        "would you like to overwrite it with an empty one? [y/n]",
                        default = "y")
         if abort != "y":
@@ -342,7 +343,7 @@ def analyze(ctx, file, test):
                 click.echo("Unknown error: %s" % response.text)
         except ValueError:
             click.echo("The autoprotocol you're trying to analyze is not "
-                       "properly formatted.  If you've generated it using a "
+                       "properly formatted.  \nIf you've generated it using a "
                        "script, make sure you're not printing anything to "
                        " standard out.")
 
@@ -360,7 +361,9 @@ def preview(protocol_name):
     try:
         p = next(p for p in manifest['protocols'] if p['name'] == protocol_name)
     except StopIteration:
-        click.echo("The protocol name '%s' does not match any protocols that can be previewed from within this directory.  Check either your spelling or your manifest.json file and try again." % protocol_name)
+        click.echo("The protocol name '%s' does not match any protocols that "
+                   "can be previewed from within this directory.  \nCheck either "
+                   "your spelling or your manifest.json file and try again." % protocol_name)
         return
     command = p['command_string']
     from subprocess import call
