@@ -2,11 +2,16 @@ import sys
 import json
 from os.path import expanduser, isfile
 import locale
-
 import click
 import requests
-
 import re
+
+# Workaround to support the correct input for both Python 2 and 3. Always use
+# input() which will point to the correct builtin.
+try:
+    input = raw_input
+except NameError:
+    pass
 
 class Config:
     def __init__(self, api_root, email, token, organization):
@@ -40,9 +45,8 @@ class Config:
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             }
-        kwargs['headers'] = \
-            dict(default_headers.items() + kwargs.get('headers', {}).items())
-        return requests.post(self.url(path), **kwargs)
+        default_headers.update(kwargs.pop('headers', {}))
+        return requests.post(self.url(path), headers=default_headers, **kwargs)
 
     def get(self, path, **kwargs):
         default_headers = {
@@ -51,9 +55,8 @@ class Config:
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             }
-        kwargs['headers'] = \
-            dict(default_headers.items() + kwargs.get('headers', {}).items())
-        return requests.get(self.url(path), **kwargs)
+        default_headers.update(kwargs.pop('headers', {}))
+        return requests.get(self.url(path), headers=default_headers, **kwargs)
 
 
 @click.group()
@@ -201,13 +204,35 @@ def analyze(ctx, file, test):
 def preview(protocol_name):
     '''Preview the Autoprotocol output of a run (without submitting or analyzing)'''
     with click.open_file('manifest.json', 'r') as f:
-        manifest = json.loads(f.read())
-    p = next(p for p in manifest['protocols'] if p['name'] == protocol_name)
-    command = p['command_string']
+        try:
+            manifest = json.loads(f.read())
+        except ValueError:
+            click.echo("Error: Your manifest.json file is improperly formatted. "
+                       "Please double check your brackets and commas!")
+            return
+    try:
+        p = next(p for p in manifest['protocols'] if p['name'] == protocol_name)
+    except StopIteration:
+        click.echo("Error: The protocol name '%s' does not match any protocols "
+                   "that can be previewed from within this directory.  \nCheck "
+                   "either your spelling or your manifest.json file and try "
+                   "again." % protocol_name)
+        return
+    try:
+        command = p['command_string']
+    except KeyError:
+        click.echo("Error: Your manifest.json file does not have a \"command_string\""
+                   " key.")
+        return
     from subprocess import call
     import tempfile
     with tempfile.NamedTemporaryFile() as fp:
-        fp.write(json.dumps(p['preview']))
+        try:
+            fp.write(json.dumps(p['preview']))
+        except KeyError:
+            click.echo("Error: The manifest.json you're trying to preview doesn't "
+                       "contain a \"preview\" section")
+            return
         fp.flush()
         call(["bash", "-c", command + " " + fp.name])
 
